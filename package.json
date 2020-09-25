@@ -1,0 +1,31 @@
+{
+  "name": "@graphile/persisted-operations",
+  "version": "0.0.0",
+  "description": "Persisted operations (aka persisted queries) support for PostGraphile's server",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/graphile/persisted-operations.git"
+  },
+  "keywords": [
+    "persisted",
+    "operations",
+    "queries",
+    "query",
+    "cache",
+    "allowlist",
+    "whitelist",
+    "graphql",
+    "PostGraphile",
+    "Graphile"
+  ],
+  "author": "Benjie Gillam <code@benjiegillam.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/graphile/persisted-operations/issues"
+  },
+  "homepage": "https://github.com/graphile/persisted-operations#readme"
+}
