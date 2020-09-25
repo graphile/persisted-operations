@@ -190,11 +190,13 @@ function persistedOperationFromPayload(
 ): string | null {
   try {
     const hashFromPayload = options.hashFromPayload || defaultHashFromPayload;
-    const getter = getterFromOptions(options);
     const hash = hashFromPayload(payload);
     if (typeof hash !== "string") {
-      throw new Error("Invalid operation hash");
+      throw new Error(
+        "We could not find a persisted operation hash string in the request."
+      );
     }
+    const getter = getterFromOptions(options);
     return getter(hash);
   } catch (e) {
     console.error("Failed to get persisted operation from payload", payload, e);
