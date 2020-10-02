@@ -159,7 +159,9 @@ function getterFromOptionsCore(options: PostGraphileOptions) {
   } else if (options.persistedOperationsDirectory) {
     return getterForDirectory(options.persistedOperationsDirectory);
   } else {
-    return () => null;
+    throw new Error(
+      "Server misconfiguration issue: persisted operations (operation allowlist) is in place, but the server has not been told how to fetch the allowed operations. Please provide one of the persisted operations configuration options."
+    );
   }
 }
 

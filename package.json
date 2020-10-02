@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "prepack": "rm -Rf dist && tsc",
+    "start": "yarn prepack && postgraphile --plugins `pwd`/dist/index.js",
     "test": "jest"
   },
   "repository": {
