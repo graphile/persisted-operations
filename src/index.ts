@@ -16,7 +16,8 @@ declare module "postgraphile" {
      * in the case of persisted operations it likely won't have a `query`
      * property), and must extract the hash to use to identify the persisted
      * operation. For Apollo Client, this might be something like:
-     * `request?.extensions?.persistedQuery?.sha256Hash`
+     * `request?.extensions?.persistedQuery?.sha256Hash`; for Relay something
+     * like: `request?.documentId`.
      */
     hashFromPayload?(request: any): string;
 
@@ -40,7 +41,7 @@ declare module "postgraphile" {
     persistedOperations?: { [hash: string]: string };
 
     /**
-     * If your known persisted queries may change over time, or you'd rather
+     * If your known persisted operations may change over time, or you'd rather
      * load them on demand, you may supply this function. Note this function is
      * both **synchronous** and **performance critical** so you should use
      * caching to improve performance of any follow-up requests for the same
@@ -52,10 +53,16 @@ declare module "postgraphile" {
 }
 
 /**
- * This fallback hashFromPayload method is compatible with Apollo Client.
+ * This fallback hashFromPayload method is compatible with Apollo Client and
+ * Relay.
  */
 function defaultHashFromPayload(request: any) {
-  return request?.extensions?.persistedQuery?.sha256Hash;
+  return (
+    // https://github.com/apollographql/apollo-link-persisted-queries#protocol
+    request?.extensions?.persistedQuery?.sha256Hash ||
+    // https://relay.dev/docs/en/persisted-queries#network-layer-changes
+    request?.documentId
+  );
 }
 
 /**
