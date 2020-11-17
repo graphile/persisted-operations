@@ -41,7 +41,7 @@ declare module "postgraphile" {
     persistedOperations?: { [hash: string]: string };
 
     /**
-     * If your known persisted queries may change over time, or you'd rather
+     * If your known persisted operations may change over time, or you'd rather
      * load them on demand, you may supply this function. Note this function is
      * both **synchronous** and **performance critical** so you should use
      * caching to improve performance of any follow-up requests for the same
