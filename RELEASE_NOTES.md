@@ -11,3 +11,7 @@
 ### v0.0.1
 
 - Initial release
+
+### Pending
+
+- Added allowUnpersistedOperation to postgraphile option. It allows to bypass security (e.g in development environment)
