@@ -49,6 +49,20 @@ declare module "postgraphile" {
      * stores (e.g. S3).
      */
     persistedOperationsGetter?: PersistedOperationGetter;
+
+    /**
+     * In development it's common to want to send arbitrary queries from GraphiQL
+     * whilst also enforcing Persisted Operations from the application. You should
+     * use this function if you want unpersisted operation to be allowed in some
+     * context (e.g in development).
+     * @example
+     * app.use(postgraphile(DATABASE_URL, SCHEMAS, {
+     *   allowUnpersistedOperation(req) {
+     *     return process.env.NODE_ENV === "development" && req.headers.referer.endsWith("/graphiql");
+     *   }
+     * });
+     */
+    allowUnpersistedOperation?(request: any): boolean;
   }
 }
 
@@ -63,6 +77,13 @@ function defaultHashFromPayload(request: any) {
     // https://relay.dev/docs/en/persisted-queries#network-layer-changes
     request?.documentId
   );
+}
+
+/**
+ * This extracts query from payload
+ */
+function queryFromPayload(request: any) {
+  return request?.query;
 }
 
 /**
@@ -201,6 +222,16 @@ function persistedOperationFromPayload(
     const hashFromPayload = options.hashFromPayload || defaultHashFromPayload;
     const hash = hashFromPayload(payload);
     if (typeof hash !== "string") {
+      const allowUnpersistedOperations =
+        options.allowUnpersistedOperation || (() => false);
+
+      if (allowUnpersistedOperations(options)) {
+        const query = queryFromPayload(payload);
+        if (typeof query === "string") {
+          return query;
+        }
+      }
+
       throw new Error(
         "We could not find a persisted operation hash string in the request."
       );
