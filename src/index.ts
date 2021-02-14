@@ -225,7 +225,7 @@ function persistedOperationFromPayload(
       const allowUnpersistedOperations =
         options.allowUnpersistedOperation || (() => false);
 
-      if (allowUnpersistedOperations(options)) {
+      if (allowUnpersistedOperations(payload)) {
         const query = queryFromPayload(payload);
         if (typeof query === "string") {
           return query;
