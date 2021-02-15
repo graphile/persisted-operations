@@ -114,12 +114,16 @@ persistedOperationsGetter?: PersistedOperationGetter;
  * whilst also enforcing Persisted Operations from the application. You should
  * use this function if you want unpersisted operation to be allowed in some
  * context (e.g in development).
+ *
  * @example
+ *
+ * ```
  * app.use(postgraphile(DATABASE_URL, SCHEMAS, {
  *   allowUnpersistedOperation(req) {
- *     return process.env.NODE_ENV === "development" && req.headers.referer.endsWith("/graphiql");
+ *     return process.env.NODE_ENV === "development" && req.headers.referer?.endsWith("/graphiql");
  *   }
  * });
+ * ```
  */
 allowUnpersistedOperation?(request: any): boolean;
 ```
