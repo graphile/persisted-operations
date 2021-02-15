@@ -1,5 +1,6 @@
 import { readFileSync, promises as fsp } from "fs";
 import { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
+import { IncomingMessage } from "http";
 
 /**
  * Given a persisted operation hash, return the associated GraphQL operation
@@ -51,18 +52,27 @@ declare module "postgraphile" {
     persistedOperationsGetter?: PersistedOperationGetter;
 
     /**
-     * In development it's common to want to send arbitrary queries from GraphiQL
-     * whilst also enforcing Persisted Operations from the application. You should
-     * use this function if you want unpersisted operation to be allowed in some
-     * context (e.g in development).
+     * There are situations where you may want to allow arbitrary operations
+     * (for example using GraphiQL in development, or allowing an admin to
+     * make arbitrary requests in production) whilst enforcing Persisted
+     * Operations for the application and non-admin users. This function
+     * allows you to determine under which circumstances persisted operations
+     * may be bypassed.
+     *
      * @example
+     *
+     * ```
      * app.use(postgraphile(DATABASE_URL, SCHEMAS, {
      *   allowUnpersistedOperation(req) {
      *     return process.env.NODE_ENV === "development" && req.headers.referer.endsWith("/graphiql");
      *   }
      * });
+     * ```
      */
-    allowUnpersistedOperation?(request: any): boolean;
+    allowUnpersistedOperation?(
+      request?: IncomingMessage,
+      payload?: any
+    ): boolean;
   }
 }
 
@@ -77,13 +87,6 @@ function defaultHashFromPayload(request: any) {
     // https://relay.dev/docs/en/persisted-queries#network-layer-changes
     request?.documentId
   );
-}
-
-/**
- * This extracts query from payload
- */
-function queryFromPayload(request: any) {
-  return request?.query;
 }
 
 /**
@@ -216,19 +219,16 @@ function getterFromOptions(options: PostGraphileOptions) {
  */
 function persistedOperationFromPayload(
   payload: any,
-  options: PostGraphileOptions
+  options: PostGraphileOptions,
+  allowUnpersistedOperation: boolean
 ): string | null {
   try {
     const hashFromPayload = options.hashFromPayload || defaultHashFromPayload;
     const hash = hashFromPayload(payload);
     if (typeof hash !== "string") {
-      const allowUnpersistedOperations =
-        options.allowUnpersistedOperation || (() => false);
-
-      if (allowUnpersistedOperations(payload)) {
-        const query = queryFromPayload(payload);
-        if (typeof query === "string") {
-          return query;
+      if (allowUnpersistedOperation) {
+        if (typeof payload?.query === "string") {
+          return payload.query;
         }
       }
 
@@ -282,20 +282,31 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
   },
 
   // For regular HTTP requests
-  "postgraphile:httpParamsList"(paramsList, { options }) {
+  "postgraphile:httpParamsList"(paramsList, { options, req }) {
     return paramsList.map((params: any) => {
+      const allowUnpersistedOperations =
+        options.allowUnpersistedOperation || (() => false);
+
       // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
-      params.query = persistedOperationFromPayload(params, options) as string;
+      params.query = persistedOperationFromPayload(
+        params,
+        options,
+        allowUnpersistedOperations(req, params)
+      ) as string;
       return params;
     });
   },
 
   // For websocket requests
-  "postgraphile:ws:onOperation"(params, { message, options }) {
+  "postgraphile:ws:onOperation"(params, { message, options, req }) {
+    const allowUnpersistedOperations =
+      options.allowUnpersistedOperation || (() => false);
+
     // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
     params.query = persistedOperationFromPayload(
       message.payload,
-      options
+      options,
+      allowUnpersistedOperations(req, message.payload)
     ) as string;
     return params;
   },
