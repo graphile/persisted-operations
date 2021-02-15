@@ -127,7 +127,7 @@ persistedOperationsGetter?: PersistedOperationGetter;
  * });
  * ```
  */ 
- allowUnpersistedOperation?(request?: IncomingMessage, payload?: any): boolean;
+ allowUnpersistedOperation?(request: IncomingMessage, payload: any): boolean;
 ```
 
 All these options are optional; but you should specify exactly one of

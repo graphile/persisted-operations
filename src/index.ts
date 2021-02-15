@@ -70,8 +70,8 @@ declare module "postgraphile" {
      * ```
      */
     allowUnpersistedOperation?(
-      request?: IncomingMessage,
-      payload?: any
+      request: IncomingMessage,
+      payload: any
     ): boolean;
   }
 }
