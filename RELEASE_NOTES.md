@@ -14,4 +14,4 @@
 
 ### Pending
 
-- Added allowUnpersistedOperation to postgraphile option. It allows to bypass security (e.g in development environment)
+- Added `allowUnpersistedOperation` option, allowing arbitrary operations to be issued under controlled circumstances
