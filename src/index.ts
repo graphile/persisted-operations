@@ -226,10 +226,8 @@ function persistedOperationFromPayload(
     const hashFromPayload = options.hashFromPayload || defaultHashFromPayload;
     const hash = hashFromPayload(payload);
     if (typeof hash !== "string") {
-      if (allowUnpersistedOperation) {
-        if (typeof payload?.query === "string") {
-          return payload.query;
-        }
+      if (allowUnpersistedOperation && typeof payload?.query === "string") {
+        return payload.query;
       }
 
       throw new Error(
