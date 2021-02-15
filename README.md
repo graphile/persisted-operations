@@ -110,10 +110,12 @@ persistedOperations?: { [hash: string]: string };
 persistedOperationsGetter?: PersistedOperationGetter;
 
 /**
- * In development it's common to want to send arbitrary queries from GraphiQL
- * whilst also enforcing Persisted Operations from the application. You should
- * use this function if you want unpersisted operation to be allowed in some
- * context (e.g in development).
+ * There are situations where you may want to allow arbitrary operations
+ * (for example using GraphiQL in development, or allowing an admin to
+ * make arbitrary requests in production) whilst enforcing Persisted
+ * Operations for the application and non-admin users. This function
+ * allows you to determine under which circumstances persisted operations
+ * may be bypassed.
  *
  * @example
  *
