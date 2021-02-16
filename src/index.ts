@@ -69,10 +69,7 @@ declare module "postgraphile" {
      * });
      * ```
      */
-    allowUnpersistedOperation?(
-      request: IncomingMessage,
-      payload: any
-    ): boolean;
+    allowUnpersistedOperation?(request: IncomingMessage, payload: any): boolean;
   }
 }
 
@@ -282,29 +279,29 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
   // For regular HTTP requests
   "postgraphile:httpParamsList"(paramsList, { options, req }) {
     return paramsList.map((params: any) => {
-      const allowUnpersistedOperations =
-        options.allowUnpersistedOperation || (() => false);
-
       // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
       params.query = persistedOperationFromPayload(
         params,
         options,
-        allowUnpersistedOperations(req, params)
+        options.allowUnpersistedOperations
+          ? options.allowUnpersistedOperations(req, params)
+          : false
       ) as string;
       return params;
     });
   },
 
   // For websocket requests
-  "postgraphile:ws:onOperation"(params, { message, options, req }) {
-    const allowUnpersistedOperations =
-      options.allowUnpersistedOperation || (() => false);
+  "postgraphile:ws:onOperation"(params, { message, options, socket }) {
+    const req = socket["__postgraphileReq"];
 
     // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
     params.query = persistedOperationFromPayload(
       message.payload,
       options,
-      allowUnpersistedOperations(req, message.payload)
+      options.allowUnpersistedOperations
+        ? options.allowUnpersistedOperations(req, params)
+        : false
     ) as string;
     return params;
   },
