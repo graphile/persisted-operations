@@ -68,7 +68,7 @@ const postGraphileMiddleware = postgraphile(databaseUrl, "app_public", {
 
 This plugin adds the following options to the PostGraphile library options:
 
-````ts
+```ts
 /**
  * This function will be passed a GraphQL request object (normally `{query:
  * string, variables?: any, operationName?: string, extensions?: any}`, but
@@ -117,6 +117,8 @@ persistedOperationsGetter?: PersistedOperationGetter;
  * allows you to determine under which circumstances persisted operations
  * may be bypassed.
  *
+ * IMPORTANT: this function must not throw!
+ *
  * @example
  *
  * ```
@@ -128,7 +130,7 @@ persistedOperationsGetter?: PersistedOperationGetter;
  * ```
  */ 
  allowUnpersistedOperation?: boolean | ((request: IncomingMessage, payload: any): boolean);
-````
+```
 
 All these options are optional; but you should specify exactly one of
 `persistedOperationsDirectory`, `persistedOperations` or

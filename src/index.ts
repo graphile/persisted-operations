@@ -59,6 +59,8 @@ declare module "postgraphile" {
      * allows you to determine under which circumstances persisted operations
      * may be bypassed.
      *
+     * IMPORTANT: this function must not throw!
+     *
      * @example
      *
      * ```
@@ -211,13 +213,11 @@ function getterFromOptions(options: PostGraphileOptions) {
 }
 
 function allowUnpersistedOperationsFromOptions(options: PostGraphileOptions, request: IncomingMessage, payload: any): boolean {
-  if (options.allowUnpersistedOperation === undefined || options.allowUnpersistedOperation === null) {
-    return false;
+  const { allowUnpersistedOperation } = options;
+  if (typeof allowUnpersistedOperation === 'function') {
+    return allowUnpersistedOperation(request, payload);
   }
-  if (typeof options.allowUnpersistedOperation === 'boolean') {
-    return options.allowUnpersistedOperation;
-  }
-  return options.allowUnpersistedOperation(request, payload);
+  return !!allowUnpersistedOperation;
 }
 
 /**
