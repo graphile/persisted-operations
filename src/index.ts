@@ -69,7 +69,7 @@ declare module "postgraphile" {
      * });
      * ```
      */
-    allowUnpersistedOperation?(request: IncomingMessage, payload: any): boolean;
+    allowUnpersistedOperation?: boolean | ((request: IncomingMessage, payload: any) => boolean);
   }
 }
 
@@ -210,6 +210,16 @@ function getterFromOptions(options: PostGraphileOptions) {
   return getter;
 }
 
+function allowUnpersistedOperationsFromOptions(options: PostGraphileOptions, request: IncomingMessage, payload: any): boolean {
+  if (options.allowUnpersistedOperation === undefined || options.allowUnpersistedOperation === null) {
+    return false;
+  }
+  if (typeof options.allowUnpersistedOperation === 'boolean') {
+    return options.allowUnpersistedOperation;
+  }
+  return options.allowUnpersistedOperation(request, payload);
+}
+
 /**
  * Given a payload, this method returns the GraphQL operation document
  * (string), or null on failure. It **never throws**.
@@ -283,9 +293,7 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       params.query = persistedOperationFromPayload(
         params,
         options,
-        options.allowUnpersistedOperations
-          ? options.allowUnpersistedOperations(req, params)
-          : false
+        allowUnpersistedOperationsFromOptions(options, req, params)
       ) as string;
       return params;
     });
@@ -293,15 +301,13 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
 
   // For websocket requests
   "postgraphile:ws:onOperation"(params, { message, options, socket }) {
-    const req = socket["__postgraphileReq"];
+    const req = socket["__postgraphileReq"] as IncomingMessage;
 
     // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
     params.query = persistedOperationFromPayload(
       message.payload,
       options,
-      options.allowUnpersistedOperations
-        ? options.allowUnpersistedOperations(req, params)
-        : false
+      allowUnpersistedOperationsFromOptions(options, req, params)
     ) as string;
     return params;
   },
