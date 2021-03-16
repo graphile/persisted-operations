@@ -1,5 +1,7 @@
 import { readFileSync, promises as fsp } from "fs";
-import { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
+import type { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
+import type { IncomingMessage } from "http";
+import type { DocumentNode } from "graphql";
 
 /**
  * Given a persisted operation hash, return the associated GraphQL operation
@@ -19,7 +21,7 @@ declare module "postgraphile" {
      * `request?.extensions?.persistedQuery?.sha256Hash`; for Relay something
      * like: `request?.documentId`.
      */
-    hashFromPayload?(request: any): string;
+    hashFromPayload?(request: RequestPayload): string;
 
     /**
      * We can read persisted operations from a folder (they must be named
@@ -49,6 +51,30 @@ declare module "postgraphile" {
      * stores (e.g. S3).
      */
     persistedOperationsGetter?: PersistedOperationGetter;
+
+    /**
+     * There are situations where you may want to allow arbitrary operations
+     * (for example using GraphiQL in development, or allowing an admin to
+     * make arbitrary requests in production) whilst enforcing Persisted
+     * Operations for the application and non-admin users. This function
+     * allows you to determine under which circumstances persisted operations
+     * may be bypassed.
+     *
+     * IMPORTANT: this function must not throw!
+     *
+     * @example
+     *
+     * ```
+     * app.use(postgraphile(DATABASE_URL, SCHEMAS, {
+     *   allowUnpersistedOperation(req) {
+     *     return process.env.NODE_ENV === "development" && req.headers.referer.endsWith("/graphiql");
+     *   }
+     * });
+     * ```
+     */
+    allowUnpersistedOperation?:
+      | boolean
+      | ((request: IncomingMessage, payload: RequestPayload) => boolean);
   }
 }
 
@@ -56,12 +82,12 @@ declare module "postgraphile" {
  * This fallback hashFromPayload method is compatible with Apollo Client and
  * Relay.
  */
-function defaultHashFromPayload(request: any) {
+function defaultHashFromPayload(payload: RequestPayload) {
   return (
     // https://github.com/apollographql/apollo-link-persisted-queries#protocol
-    request?.extensions?.persistedQuery?.sha256Hash ||
+    payload?.extensions?.persistedQuery?.sha256Hash ||
     // https://relay.dev/docs/en/persisted-queries#network-layer-changes
-    request?.documentId
+    payload?.documentId
   );
 }
 
@@ -190,17 +216,64 @@ function getterFromOptions(options: PostGraphileOptions) {
 }
 
 /**
+ * The payload of the request would normally have
+ * query/operationName/variables/extensions; but in persisted operations it may
+ * have something else other than `query`. We've typed a few of the more common
+ * versions, if this doesn't work for you you'll need to cast `payload as any`.
+ */
+interface RequestPayload {
+  /** As used by Apollo https://github.com/apollographql/apollo-link-persisted-queries#protocol */
+  extensions?: {
+    persistedQuery?: {
+      sha256Hash?: string;
+    };
+  };
+
+  /** As used by Relay https://relay.dev/docs/en/persisted-queries#network-layer-changes */
+  documentId?: string;
+
+  /** Non-standard. */
+  id?: string;
+
+  /** The actual query; we're generally expecting a hash via one of the methods above instead */
+  query?: string | DocumentNode;
+
+  /** GraphQL operation variables */
+  variables?: { [key: string]: unknown };
+
+  /** If the document contains more than one operation; the name of the one to execute. */
+  operationName?: string;
+}
+
+function shouldAllowUnpersistedOperation(
+  options: PostGraphileOptions,
+  request: IncomingMessage,
+  payload: RequestPayload
+): boolean {
+  const { allowUnpersistedOperation } = options;
+  if (typeof allowUnpersistedOperation === "function") {
+    return allowUnpersistedOperation(request, payload);
+  }
+  return !!allowUnpersistedOperation;
+}
+
+/**
  * Given a payload, this method returns the GraphQL operation document
  * (string), or null on failure. It **never throws**.
  */
 function persistedOperationFromPayload(
-  payload: any,
-  options: PostGraphileOptions
+  payload: RequestPayload,
+  options: PostGraphileOptions,
+  allowUnpersistedOperation: boolean
 ): string | null {
   try {
     const hashFromPayload = options.hashFromPayload || defaultHashFromPayload;
     const hash = hashFromPayload(payload);
     if (typeof hash !== "string") {
+      if (allowUnpersistedOperation && typeof payload?.query === "string") {
+        return payload.query;
+      }
+
       throw new Error(
         "We could not find a persisted operation hash string in the request."
       );
@@ -224,6 +297,10 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       "--persisted-operations-directory <fullpath>",
       "[@graphile/persisted-operations] The path to the directory in which we'd find the persisted query files (each named <hash>.graphql)"
     );
+    addFlag(
+      "--allow-unpersisted-operations",
+      "[@graphile/persisted-operations] Allow clients to send regular GraphQL queries (not just persisted operations); it's better to control this on a per-request basis in library mode instead."
+    );
 
     // The ouput from one plugin is fed as the input into the next, so we must
     // remember to return the input.
@@ -232,13 +309,17 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
 
   ["cli:library:options"](options, { config, cliOptions }) {
     // Take the CLI options and add them as PostGraphile options.
-    const { persistedOperationsDirectory = undefined } = {
+    const {
+      persistedOperationsDirectory = undefined,
+      allowUnpersistedOperations = undefined,
+    } = {
       ...config["options"],
       ...cliOptions,
     };
     return {
       ...options,
       persistedOperationsDirectory,
+      allowUnpersistedOperation: allowUnpersistedOperations,
     };
   },
 
@@ -251,20 +332,30 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
   },
 
   // For regular HTTP requests
-  "postgraphile:httpParamsList"(paramsList, { options }) {
-    return paramsList.map((params: any) => {
+  "postgraphile:httpParamsList"(
+    paramsList: RequestPayload[],
+    { options, req }
+  ) {
+    return paramsList.map((params) => {
       // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
-      params.query = persistedOperationFromPayload(params, options) as string;
+      params.query = persistedOperationFromPayload(
+        params,
+        options,
+        shouldAllowUnpersistedOperation(options, req, params)
+      ) as string;
       return params;
     });
   },
 
   // For websocket requests
-  "postgraphile:ws:onOperation"(params, { message, options }) {
+  "postgraphile:ws:onOperation"(params, { message, options, socket }) {
+    const req = socket["__postgraphileReq"] as IncomingMessage;
+
     // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
     params.query = persistedOperationFromPayload(
       message.payload,
-      options
+      options,
+      shouldAllowUnpersistedOperation(options, req, params)
     ) as string;
     return params;
   },

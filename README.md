@@ -68,7 +68,7 @@ const postGraphileMiddleware = postgraphile(databaseUrl, "app_public", {
 
 This plugin adds the following options to the PostGraphile library options:
 
-```ts
+````ts
 /**
  * This function will be passed a GraphQL request object (normally `{query:
  * string, variables?: any, operationName?: string, extensions?: any}`, but
@@ -108,7 +108,29 @@ persistedOperations?: { [hash: string]: string };
  * stores (e.g. S3).
  */
 persistedOperationsGetter?: PersistedOperationGetter;
-```
+
+/**
+ * There are situations where you may want to allow arbitrary operations
+ * (for example using GraphiQL in development, or allowing an admin to
+ * make arbitrary requests in production) whilst enforcing Persisted
+ * Operations for the application and non-admin users. This function
+ * allows you to determine under which circumstances persisted operations
+ * may be bypassed.
+ *
+ * IMPORTANT: this function must not throw!
+ *
+ * @example
+ *
+ * ```
+ * app.use(postgraphile(DATABASE_URL, SCHEMAS, {
+ *   allowUnpersistedOperation(req) {
+ *     return process.env.NODE_ENV === "development" && req.headers.referer?.endsWith("/graphiql");
+ *   }
+ * });
+ * ```
+ */
+ allowUnpersistedOperation?: boolean | ((request: IncomingMessage, payload: RequestPayload): boolean);
+````
 
 All these options are optional; but you should specify exactly one of
 `persistedOperationsDirectory`, `persistedOperations` or
