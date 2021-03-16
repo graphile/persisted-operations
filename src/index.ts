@@ -1,6 +1,7 @@
 import { readFileSync, promises as fsp } from "fs";
-import { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
-import { IncomingMessage } from "http";
+import type { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
+import type { IncomingMessage } from "http";
+import type { DocumentNode } from "graphql";
 
 /**
  * Given a persisted operation hash, return the associated GraphQL operation
@@ -20,7 +21,7 @@ declare module "postgraphile" {
      * `request?.extensions?.persistedQuery?.sha256Hash`; for Relay something
      * like: `request?.documentId`.
      */
-    hashFromPayload?(request: any): string;
+    hashFromPayload?(request: RequestPayload): string;
 
     /**
      * We can read persisted operations from a folder (they must be named
@@ -71,7 +72,9 @@ declare module "postgraphile" {
      * });
      * ```
      */
-    allowUnpersistedOperation?: boolean | ((request: IncomingMessage, payload: any) => boolean);
+    allowUnpersistedOperation?:
+      | boolean
+      | ((request: IncomingMessage, payload: RequestPayload) => boolean);
   }
 }
 
@@ -79,12 +82,12 @@ declare module "postgraphile" {
  * This fallback hashFromPayload method is compatible with Apollo Client and
  * Relay.
  */
-function defaultHashFromPayload(request: any) {
+function defaultHashFromPayload(payload: RequestPayload) {
   return (
     // https://github.com/apollographql/apollo-link-persisted-queries#protocol
-    request?.extensions?.persistedQuery?.sha256Hash ||
+    payload?.extensions?.persistedQuery?.sha256Hash ||
     // https://relay.dev/docs/en/persisted-queries#network-layer-changes
-    request?.documentId
+    payload?.documentId
   );
 }
 
@@ -212,9 +215,43 @@ function getterFromOptions(options: PostGraphileOptions) {
   return getter;
 }
 
-function allowUnpersistedOperationsFromOptions(options: PostGraphileOptions, request: IncomingMessage, payload: any): boolean {
+/**
+ * The payload of the request would normally have
+ * query/operationName/variables/extensions; but in persisted operations it may
+ * have something else other than `query`. We've typed a few of the more common
+ * versions, if this doesn't work for you you'll need to cast `payload as any`.
+ */
+interface RequestPayload {
+  /** As used by Apollo https://github.com/apollographql/apollo-link-persisted-queries#protocol */
+  extensions?: {
+    persistedQuery?: {
+      sha256Hash?: string;
+    };
+  };
+
+  /** As used by Relay https://relay.dev/docs/en/persisted-queries#network-layer-changes */
+  documentId?: string;
+
+  /** Non-standard. */
+  id?: string;
+
+  /** The actual query; we're generally expecting a hash via one of the methods above instead */
+  query?: string | DocumentNode;
+
+  /** GraphQL operation variables */
+  variables?: { [key: string]: unknown };
+
+  /** If the document contains more than one operation; the name of the one to execute. */
+  operationName?: string;
+}
+
+function allowUnpersistedOperationsFromOptions(
+  options: PostGraphileOptions,
+  request: IncomingMessage,
+  payload: RequestPayload
+): boolean {
   const { allowUnpersistedOperation } = options;
-  if (typeof allowUnpersistedOperation === 'function') {
+  if (typeof allowUnpersistedOperation === "function") {
     return allowUnpersistedOperation(request, payload);
   }
   return !!allowUnpersistedOperation;
@@ -225,7 +262,7 @@ function allowUnpersistedOperationsFromOptions(options: PostGraphileOptions, req
  * (string), or null on failure. It **never throws**.
  */
 function persistedOperationFromPayload(
-  payload: any,
+  payload: RequestPayload,
   options: PostGraphileOptions,
   allowUnpersistedOperation: boolean
 ): string | null {
@@ -287,8 +324,11 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
   },
 
   // For regular HTTP requests
-  "postgraphile:httpParamsList"(paramsList, { options, req }) {
-    return paramsList.map((params: any) => {
+  "postgraphile:httpParamsList"(
+    paramsList: RequestPayload[],
+    { options, req }
+  ) {
+    return paramsList.map((params) => {
       // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
       params.query = persistedOperationFromPayload(
         params,
