@@ -245,7 +245,7 @@ interface RequestPayload {
   operationName?: string;
 }
 
-function allowUnpersistedOperationsFromOptions(
+function shouldAllowUnpersistedOperation(
   options: PostGraphileOptions,
   request: IncomingMessage,
   payload: RequestPayload
@@ -333,7 +333,7 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       params.query = persistedOperationFromPayload(
         params,
         options,
-        allowUnpersistedOperationsFromOptions(options, req, params)
+        shouldAllowUnpersistedOperation(options, req, params)
       ) as string;
       return params;
     });
@@ -347,7 +347,7 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
     params.query = persistedOperationFromPayload(
       message.payload,
       options,
-      allowUnpersistedOperationsFromOptions(options, req, params)
+      shouldAllowUnpersistedOperation(options, req, params)
     ) as string;
     return params;
   },
