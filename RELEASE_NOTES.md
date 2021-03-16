@@ -1,8 +1,9 @@
 # Release notes
 
-### Pending
+### v0.1.0
 
-- Added `allowUnpersistedOperation` option, allowing arbitrary operations to be issued under controlled circumstances
+- Added `allowUnpersistedOperation` option, allowing arbitrary operations to be
+  issued under controlled circumstances
 
 ### v0.0.3
 
