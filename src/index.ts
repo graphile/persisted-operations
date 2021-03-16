@@ -297,6 +297,10 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       "--persisted-operations-directory <fullpath>",
       "[@graphile/persisted-operations] The path to the directory in which we'd find the persisted query files (each named <hash>.graphql)"
     );
+    addFlag(
+      "--allow-unpersisted-operations",
+      "[@graphile/persisted-operations] Allow clients to send regular GraphQL queries (not just persisted operations); it's better to control this on a per-request basis in library mode instead."
+    );
 
     // The ouput from one plugin is fed as the input into the next, so we must
     // remember to return the input.
@@ -305,13 +309,17 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
 
   ["cli:library:options"](options, { config, cliOptions }) {
     // Take the CLI options and add them as PostGraphile options.
-    const { persistedOperationsDirectory = undefined } = {
+    const {
+      persistedOperationsDirectory = undefined,
+      allowUnpersistedOperations = undefined,
+    } = {
       ...config["options"],
       ...cliOptions,
     };
     return {
       ...options,
       persistedOperationsDirectory,
+      allowUnpersistedOperation: allowUnpersistedOperations,
     };
   },
 
