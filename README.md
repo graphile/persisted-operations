@@ -142,7 +142,7 @@ All these options are optional; but you should specify exactly one of
 
 Relay has built-in support for persisted operations:
 
-https://relay.dev/docs/en/persisted-queries
+https://relay.dev/docs/guides/persisted-queries/
 
 Pass `--persist-output ./path/to/server.json` to `relay-compiler` along with
 your normal options to have it generate the persisted operations file. You can
@@ -152,7 +152,7 @@ JSON file into one file per query that can be passed to
 
 Then in your network config (`fetchQuery` function) you need to change the
 `query: operation.text` to `documentId: operation.id`
-[as shown in the relay docs](https://relay.dev/docs/en/persisted-queries#network-layer-changes).
+[as shown in the relay docs](https://relay.dev/docs/guides/persisted-queries/#network-layer-changes).
 
 ### GraphQL-Code-Generator
 
