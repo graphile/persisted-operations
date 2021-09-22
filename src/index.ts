@@ -365,13 +365,15 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
     // @ts-expect-error: __postgraphileReq exists on socket
     const req = context.extra.socket["__postgraphileReq"] as IncomingMessage;
     const payload = message.payload as RequestPayload;
-    // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
     const query = persistedOperationFromPayload(
       payload,
       options,
       shouldAllowUnpersistedOperation(options, req, payload)
     );
-    params.document = query ? parse(query) : (null as any);
+    params.document = query
+      ? parse(query)
+      : // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
+        (null as any);
     return params;
   },
 };
