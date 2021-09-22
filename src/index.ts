@@ -2,6 +2,7 @@ import { readFileSync, promises as fsp } from "fs";
 import type { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
 import type { IncomingMessage } from "http";
 import type { DocumentNode } from "graphql";
+import { parse } from "graphql";
 
 /**
  * Given a persisted operation hash, return the associated GraphQL operation
@@ -347,7 +348,7 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
     });
   },
 
-  // For websocket requests
+  // For v0 websocket requests
   "postgraphile:ws:onOperation"(params, { message, options, socket }) {
     const req = socket["__postgraphileReq"] as IncomingMessage;
 
@@ -357,6 +358,20 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       options,
       shouldAllowUnpersistedOperation(options, req, params)
     ) as string;
+    return params;
+  },
+  // For v1 websocket requests
+  "postgraphile:ws:onSubscribe"(params, { context, message, options }) {
+    // @ts-expect-error: __postgraphileReq exists on socket
+    const req = context.extra.socket["__postgraphileReq"] as IncomingMessage;
+    const payload = message.payload as RequestPayload;
+    // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
+    const query = persistedOperationFromPayload(
+      payload,
+      options,
+      shouldAllowUnpersistedOperation(options, req, payload)
+    );
+    if (query) params.document = parse(query);
     return params;
   },
 };
