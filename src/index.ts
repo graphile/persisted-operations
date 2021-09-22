@@ -371,7 +371,7 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       options,
       shouldAllowUnpersistedOperation(options, req, payload)
     );
-    if (query) params.document = parse(query);
+    params.document = query ? parse(query) : (null as any);
     return params;
   },
 };
