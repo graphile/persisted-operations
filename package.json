@@ -32,14 +32,12 @@
   },
   "homepage": "https://github.com/graphile/persisted-operations#readme",
   "peerDependencies": {
-    "postgraphile": "^4.9.0",
-    "graphql": ">=0.11 <=16"
+    "postgraphile": "^4.9.0"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^4.2.0",
     "@typescript-eslint/parser": "^4.2.0",
     "eslint": "^7.9.0",
-    "graphql": "^15.6.0",
     "jest": "^26.4.2",
     "postgraphile": "^4.12.3",
     "prettier": "^2.1.2",

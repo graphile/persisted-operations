@@ -2,7 +2,6 @@ import { readFileSync, promises as fsp } from "fs";
 import type { PostGraphileOptions, PostGraphilePlugin } from "postgraphile";
 import type { IncomingMessage } from "http";
 import type { DocumentNode } from "graphql";
-import { parse } from "graphql";
 
 /**
  * Given a persisted operation hash, return the associated GraphQL operation
@@ -290,7 +289,16 @@ function persistedOperationFromPayload(
   }
 }
 
+let parse: (source: string) => DocumentNode = () => {
+  throw new Error("graphql parse not initialised");
+};
+
 const PersistedQueriesPlugin: PostGraphilePlugin = {
+  init(_, { graphql }) {
+    parse = graphql.parse;
+    return null;
+  },
+
   ["cli:flags:add:webserver"](addFlag) {
     // Add CLI flag. We're adding our plugin name in square brackets to help
     // the user know where the options are coming from.
