@@ -289,7 +289,16 @@ function persistedOperationFromPayload(
   }
 }
 
+let parse: (source: string) => DocumentNode = () => {
+  throw new Error("graphql parse not initialised");
+};
+
 const PersistedQueriesPlugin: PostGraphilePlugin = {
+  init(_, { graphql }) {
+    parse = graphql.parse;
+    return null;
+  },
+
   ["cli:flags:add:webserver"](addFlag) {
     // Add CLI flag. We're adding our plugin name in square brackets to help
     // the user know where the options are coming from.
@@ -347,7 +356,7 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
     });
   },
 
-  // For websocket requests
+  // For v0 websocket requests
   "postgraphile:ws:onOperation"(params, { message, options, socket }) {
     const req = socket["__postgraphileReq"] as IncomingMessage;
 
@@ -357,6 +366,22 @@ const PersistedQueriesPlugin: PostGraphilePlugin = {
       options,
       shouldAllowUnpersistedOperation(options, req, params)
     ) as string;
+    return params;
+  },
+  // For v1 websocket requests
+  "postgraphile:ws:onSubscribe"(params, { context, message, options }) {
+    // @ts-expect-error: __postgraphileReq exists on socket
+    const req = context.extra.socket["__postgraphileReq"] as IncomingMessage;
+    const payload = message.payload as RequestPayload;
+    const query = persistedOperationFromPayload(
+      payload,
+      options,
+      shouldAllowUnpersistedOperation(options, req, payload)
+    );
+    params.document = query
+      ? parse(query)
+      : // ALWAYS OVERWRITE, even if invalid; the error will be thrown elsewhere.
+        (null as any);
     return params;
   },
 };
