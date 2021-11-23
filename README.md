@@ -74,8 +74,7 @@ This plugin adds the following options to the PostGraphile library options:
  * string, variables?: any, operationName?: string, extensions?: any}`, but
  * in the case of persisted operations it likely won't have a `query`
  * property), and must extract the hash to use to identify the persisted
- * operation. For 
- Client, this might be something like:
+ * operation. For Apollo Client, this might be something like:
  * `request?.extensions?.persistedQuery?.sha256Hash`; for Relay something
  * like: `request?.documentId`.
  */
